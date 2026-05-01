@@ -1,0 +1,22 @@
+﻿# Build
+build/
+.gradle/
+out/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# 민감 정보
+src/main/resources/application.yml
+src/main/resources/application-*.yml
+
+# Java
+*.class
+*.jar
+*.war
+
+# OS
+.DS_Store
+Thumbs.db
