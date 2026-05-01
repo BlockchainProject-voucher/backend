@@ -56,11 +56,17 @@ public class Voucher {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    // 블록체인 민팅 확인 후 온체인 정보를 업데이트
+    // 트랜잭션 전송 직후 호출 — txHash를 즉시 저장해 타임아웃 시 복구 가능하게 함
+    public void setPendingTx(String txHash) {
+        this.txHash = txHash;
+    }
+
+    // Receipt 수신 후 호출 — 온체인 정보 전체 업데이트 및 ACTIVE 전환
     public void confirmMinting(Long onChainTokenId, String txHash, Long blockNumber) {
         this.onChainTokenId = onChainTokenId;
         this.txHash = txHash;
         this.blockNumber = blockNumber;
         this.mintedAt = LocalDateTime.now();
+        this.status = VoucherStatus.ACTIVE;
     }
 }
