@@ -35,16 +35,16 @@ public class BlockchainService {
     private final BlockchainProperties blockchainProperties;
 
     /**
-     * ERC-721 바우처 민팅.
-     * 트랜잭션 전송 후 1초 간격으로 receipt를 폴링하며 최대 40초 대기.
+     * 민팅 트랜잭션을 전송하고 txHash를 즉시 반환합니다.
+     * Receipt 대기 없이 반환하므로 호출 즉시 txHash를 DB에 저장할 수 있습니다.
      *
      * TODO (블록체인팀 확인 필요):
      *   1. 함수명: 현재 "mint" 가정 → safeMint, mintTo 등으로 변경될 수 있음
      *   2. 파라미터: (address ownerAddress, uint256 amount) 가정
-     *   3. Transfer 이벤트 tokenId가 indexed 인지 확인 (OpenZeppelin 기준 topics[3])
+     *   3. 가스 전략: 현재 ethGasPrice() 사용 → EIP-1559 방식으로 변경 가능
      */
-    public MintResult mintVoucher(String ownerAddress, Long amount) {
-        log.info("[Blockchain] mintVoucher() — to: {}, amount: {}", ownerAddress, amount);
+    public String sendMintTx(String ownerAddress, Long amount) {
+        log.info("[Blockchain] sendMintTx() — to: {}, amount: {}", ownerAddress, amount);
         try {
             Credentials credentials = Credentials.create(blockchainProperties.getPrivateKey());
 
@@ -54,18 +54,17 @@ public class BlockchainService {
 
             BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice();
 
-            // TODO: 함수명 "mint" 및 파라미터 (address, uint256) 블록체인팀과 확인
+            // TODO: 함수명 "mint" 및 파라미터 타입 블록체인팀과 확인
             Function function = new Function(
                     "mint",
                     List.of(new Address(ownerAddress), new Uint256(BigInteger.valueOf(amount))),
                     Collections.emptyList()
             );
-            String encodedFunction = FunctionEncoder.encode(function);
 
             RawTransaction rawTx = RawTransaction.createTransaction(
                     nonce, gasPrice, GAS_LIMIT,
                     blockchainProperties.getContractAddress(),
-                    encodedFunction
+                    FunctionEncoder.encode(function)
             );
 
             byte[] signedMessage = TransactionEncoder.signMessage(rawTx, credentials);
@@ -79,48 +78,56 @@ public class BlockchainService {
 
             String txHash = sendResult.getTransactionHash();
             log.info("[Blockchain] tx sent — txHash: {}", txHash);
-
-            // Receipt 폴링 (1초 간격, 최대 40초 대기)
-            TransactionReceipt receipt = pollForReceipt(txHash);
-
-            // Transfer 이벤트 topics[3]에서 tokenId 추출
-            Long tokenId = extractTokenId(receipt);
-
-            log.info("[Blockchain] mint confirmed — tokenId: {}, block: {}",
-                    tokenId, receipt.getBlockNumber());
-            return new MintResult(tokenId, txHash, receipt.getBlockNumber().longValue());
+            return txHash;
 
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            throw new RuntimeException("블록체인 민팅 중 오류: " + e.getMessage(), e);
+            throw new RuntimeException("트랜잭션 전송 중 오류: " + e.getMessage(), e);
         }
     }
 
-    private TransactionReceipt pollForReceipt(String txHash) throws Exception {
-        for (int attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt++) {
-            Optional<TransactionReceipt> receipt = web3j
-                    .ethGetTransactionReceipt(txHash).send().getTransactionReceipt();
-            if (receipt.isPresent()) {
-                return receipt.get();
+    /**
+     * txHash로 Receipt를 폴링합니다.
+     * 1초 간격으로 최대 40초 대기하며, 타임아웃 시 RuntimeException을 던집니다.
+     * 타임아웃이 발생해도 txHash는 이미 DB에 저장된 상태이므로 수동 복구가 가능합니다.
+     */
+    public TransactionReceipt waitForReceipt(String txHash) {
+        log.info("[Blockchain] waiting for receipt — txHash: {}", txHash);
+        try {
+            for (int attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt++) {
+                Optional<TransactionReceipt> receipt = web3j
+                        .ethGetTransactionReceipt(txHash).send().getTransactionReceipt();
+                if (receipt.isPresent()) {
+                    log.info("[Blockchain] receipt arrived — attempt: {}/{}", attempt, MAX_POLL_ATTEMPTS);
+                    return receipt.get();
+                }
+                log.debug("[Blockchain] polling {}/{}", attempt, MAX_POLL_ATTEMPTS);
+                Thread.sleep(POLL_INTERVAL_MS);
             }
-            log.debug("[Blockchain] polling receipt {}/{} — txHash: {}", attempt, MAX_POLL_ATTEMPTS, txHash);
-            Thread.sleep(POLL_INTERVAL_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("폴링 중 인터럽트 발생 — txHash: " + txHash, e);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Receipt 조회 중 오류: " + e.getMessage(), e);
         }
-        // 타임아웃 → @Transactional 롤백 트리거
         throw new RuntimeException("Receipt 타임아웃 (40초 초과) — txHash: " + txHash);
     }
 
     /**
+     * Receipt 로그에서 ERC-721 Transfer 이벤트의 tokenId를 추출합니다.
+     *
      * Transfer(address indexed from, address indexed to, uint256 indexed tokenId)
      *   topics[0] = 이벤트 시그니처 해시
      *   topics[1] = from address
      *   topics[2] = to address
-     *   topics[3] = tokenId (hex, big-endian)
+     *   topics[3] = tokenId (hex)
      *
-     * TODO: tokenId가 indexed가 아닌 경우 log.getData()에서 ABI 디코딩으로 변경 필요
+     * TODO: tokenId가 indexed가 아닌 컨트랙트의 경우 log.getData()에서 ABI 디코딩 필요
      */
-    private Long extractTokenId(TransactionReceipt receipt) {
+    public Long extractTokenId(TransactionReceipt receipt) {
         return receipt.getLogs().stream()
                 .filter(log -> log.getTopics().size() >= 4)
                 .findFirst()
@@ -129,7 +136,7 @@ public class BlockchainService {
     }
 
     /**
-     * TODO: tokenURI 저장 방식 확정 필요 (현재: 로컬 서버 URL / 대안: IPFS)
+     * TODO: tokenURI 저장 방식 블록체인팀과 확인 (현재: 로컬 서버 URL / 대안: IPFS)
      */
     public String generateTokenUri(Long programId, String baseUrl) {
         return baseUrl + "/api/metadata/" + programId;

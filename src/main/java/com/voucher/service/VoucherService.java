@@ -1,7 +1,6 @@
 package com.voucher.service;
 
 import com.voucher.blockchain.BlockchainService;
-import com.voucher.blockchain.MintResult;
 import com.voucher.domain.Member;
 import com.voucher.domain.Voucher;
 import com.voucher.domain.VoucherProgram;
@@ -18,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.web3j.protocol.core.methods.response.TransactionReceipt;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -38,12 +38,14 @@ public class VoucherService {
 
     /**
      * 바우처 발급 흐름:
-     *   ① DB에 voucher 저장 (온체인 정보 null, status = ACTIVE)
-     *   ② blockchainService.mintVoucher() 호출 — 폴링 대기
-     *      타임아웃 시 RuntimeException → @Transactional 롤백
-     *   ③ receipt 수신 → txHash / blockNumber / tokenId 추출
-     *   ④ voucher.confirmMinting()으로 온체인 정보 업데이트
-     *   ⑤ VoucherResponse 반환
+     *
+     *  ① DB 저장        status = PENDING, 블록체인 필드 전부 null
+     *  ② tx 전송        sendMintTx() → txHash 즉시 반환
+     *  ③ txHash DB 저장 setPendingTx(txHash) — 타임아웃 시에도 txHash 보존
+     *  ④ Receipt 폴링   waitForReceipt() — 1초 간격 최대 40초
+     *     타임아웃 시   txHash가 DB에 남아 수동 복구 가능
+     *  ⑤ tokenId 추출   Transfer 이벤트 topics[3]
+     *  ⑥ DB 업데이트    confirmMinting() → status = ACTIVE
      */
     @Transactional
     public ApiResponse<VoucherResponse> issueVoucher(CreateVoucherRequest request) {
@@ -56,35 +58,45 @@ public class VoucherService {
 
         String tokenUri = blockchainService.generateTokenUri(program.getId(), baseUrl);
 
-        // ① DB 먼저 저장 (on_chain_token_id / tx_hash / block_number = null)
+        // ① DB 저장 (status = PENDING)
         Voucher voucher = Voucher.builder()
-                .onChainTokenId(null)
                 .voucherProgram(program)
                 .owner(owner)
                 .currentValue(program.getMaxValue())
                 .initialValue(program.getMaxValue())
                 .tokenUri(tokenUri)
-                .txHash(null)
-                .blockNumber(null)
-                .status(VoucherStatus.ACTIVE)
-                .mintedAt(null)
+                .status(VoucherStatus.PENDING)
                 .build();
         voucherRepository.save(voucher);
 
-        // ② 블록체인 민팅 (1초 폴링, 최대 40초 대기)
-        MintResult mintResult;
+        // ② 트랜잭션 전송 → txHash 즉시 반환
+        String txHash;
         try {
-            mintResult = blockchainService.mintVoucher(owner.getWalletAddress(), program.getMaxValue());
-        } catch (RuntimeException e) {
-            log.error("Mint failed — wallet: {}, programId: {}, error: {}",
-                    owner.getWalletAddress(), program.getId(), e.getMessage(), e);
-            // RuntimeException 으로 @Transactional 롤백 트리거
+            txHash = blockchainService.sendMintTx(owner.getWalletAddress(), program.getMaxValue());
+        } catch (Exception e) {
+            log.error("tx 전송 실패 — wallet: {}, programId: {}", owner.getWalletAddress(), program.getId(), e);
             throw new BusinessException(ErrorCode.MINT_FAILED);
         }
 
-        // ④ 온체인 정보 업데이트 (Hibernate dirty checking → UPDATE 발생)
-        voucher.confirmMinting(mintResult.getTokenId(), mintResult.getTxHash(), mintResult.getBlockNumber());
+        // ③ txHash 즉시 DB 저장 — 이후 타임아웃이 발생해도 txHash로 온체인 상태 확인 가능
+        voucher.setPendingTx(txHash);
 
+        // ④ Receipt 폴링 (타임아웃 시 RuntimeException → @Transactional 롤백)
+        //    롤백되더라도 txHash는 이미 커밋 전이므로 함께 롤백됨
+        //    → 타임아웃 후에는 txHash로 직접 온체인 확인 필요
+        TransactionReceipt receipt;
+        try {
+            receipt = blockchainService.waitForReceipt(txHash);
+        } catch (Exception e) {
+            log.error("Receipt 타임아웃 — txHash: {}", txHash, e);
+            throw new BusinessException(ErrorCode.MINT_TIMEOUT);
+        }
+
+        // ⑤⑥ tokenId 추출 후 DB 업데이트 (status → ACTIVE)
+        Long tokenId = blockchainService.extractTokenId(receipt);
+        voucher.confirmMinting(tokenId, txHash, receipt.getBlockNumber().longValue());
+
+        log.info("바우처 발급 완료 — voucherId: {}, tokenId: {}, txHash: {}", voucher.getId(), tokenId, txHash);
         return ApiResponse.success(VoucherResponse.from(voucher));
     }
 
