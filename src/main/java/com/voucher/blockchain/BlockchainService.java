@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import org.web3j.abi.FunctionEncoder;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Function;
-import org.web3j.abi.datatypes.generated.Uint256;
+import org.web3j.abi.datatypes.Utf8String;
 import org.web3j.crypto.Credentials;
 import org.web3j.crypto.RawTransaction;
 import org.web3j.crypto.TransactionEncoder;
@@ -38,13 +38,10 @@ public class BlockchainService {
      * 민팅 트랜잭션을 전송하고 txHash를 즉시 반환합니다.
      * Receipt 대기 없이 반환하므로 호출 즉시 txHash를 DB에 저장할 수 있습니다.
      *
-     * TODO (블록체인팀 확인 필요):
-     *   1. 함수명: 현재 "mint" 가정 → safeMint, mintTo 등으로 변경될 수 있음
-     *   2. 파라미터: (address ownerAddress, uint256 amount) 가정
-     *   3. 가스 전략: 현재 ethGasPrice() 사용 → EIP-1559 방식으로 변경 가능
+     * TODO (블록체인 확인 필요): 가스 전략: 현재 ethGasPrice() 사용 → EIP-1559 방식으로 변경 가능
      */
-    public String sendMintTx(String ownerAddress, Long amount) {
-        log.info("[Blockchain] sendMintTx() — to: {}, amount: {}", ownerAddress, amount);
+    public String sendMintTx(String ownerAddress, String tokenUri) {
+        log.info("[Blockchain] sendMintTx() — to: {}, tokenUri: {}", ownerAddress, tokenUri);
         try {
             Credentials credentials = Credentials.create(blockchainProperties.getPrivateKey());
 
@@ -54,10 +51,9 @@ public class BlockchainService {
 
             BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice();
 
-            // TODO: 함수명 "mint" 및 파라미터 타입 블록체인팀과 확인
             Function function = new Function(
-                    "mint",
-                    List.of(new Address(ownerAddress), new Uint256(BigInteger.valueOf(amount))),
+                    "mintVoucher",
+                    List.of(new Address(ownerAddress), new Utf8String(tokenUri)),
                     Collections.emptyList()
             );
 
