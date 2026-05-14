@@ -22,13 +22,13 @@ public class MetadataController {
 
     @Operation(summary = "ERC-721 메타데이터 조회",
             description = "컨트랙트의 tokenURI(tokenId) 호출 URL이 이 엔드포인트를 가리킵니다. OpenSea 표준 포맷을 따릅니다.")
-    @GetMapping("/{onChainTokenId}")
+    @GetMapping("/{voucherId}")
     public ApiResponse<MetadataResponse> getMetadata(
-            @Parameter(description = "온체인 ERC-721 tokenId", example = "1714567890123")
-            @PathVariable Long onChainTokenId) {
-        Voucher voucher = voucherService.findByOnChainTokenIdOrThrow(onChainTokenId);
+            @Parameter(description = "DB 바우처 ID", example = "42")
+            @PathVariable Long voucherId) {
+        Voucher voucher = voucherService.findByIdOrThrow(voucherId);
         MetadataResponse metadata = MetadataResponse.builder()
-                .name(voucher.getVoucherProgram().getName() + " #" + onChainTokenId)
+                .name(voucher.getVoucherProgram().getName() + " #" + voucherId)
                 .description(voucher.getVoucherProgram().getDescription())
                 .image("") // TODO: IPFS or CDN URL 확정 후 교체
                 .attributes(List.of(

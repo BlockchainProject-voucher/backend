@@ -33,7 +33,14 @@ public class Member {
     @Column(nullable = true)
     private String category;
 
+    @Column(length = 36)
+    private String nonce;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    public void updateNonce(String nonce) {
+        this.nonce = nonce;
+    }
 }

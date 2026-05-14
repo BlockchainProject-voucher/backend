@@ -134,7 +134,7 @@ public class BlockchainService {
     /**
      * TODO: tokenURI 저장 방식 블록체인팀과 확인 (현재: 로컬 서버 URL / 대안: IPFS)
      */
-    public String generateTokenUri(Long programId, String baseUrl) {
-        return baseUrl + "/api/metadata/" + programId;
+    public String generateTokenUri(Long voucherId, String baseUrl) {
+        return baseUrl + "/api/metadata/" + voucherId;
     }
 }

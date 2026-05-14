@@ -56,18 +56,18 @@ public class VoucherService {
             throw new BusinessException(ErrorCode.VOUCHER_PROGRAM_INACTIVE);
         }
 
-        String tokenUri = blockchainService.generateTokenUri(program.getId(), baseUrl);
-
-        // ① DB 저장 (status = PENDING)
+        // ① DB 저장 (status = PENDING) — voucherId 확보 후 tokenUri 생성
         Voucher voucher = Voucher.builder()
                 .voucherProgram(program)
                 .owner(owner)
                 .currentValue(program.getMaxValue())
                 .initialValue(program.getMaxValue())
-                .tokenUri(tokenUri)
                 .status(VoucherStatus.PENDING)
                 .build();
         voucherRepository.save(voucher);
+
+        String tokenUri = blockchainService.generateTokenUri(voucher.getId(), baseUrl);
+        voucher.updateTokenUri(tokenUri);
 
         // ② 트랜잭션 전송 → txHash 즉시 반환
         String txHash;
@@ -116,6 +116,11 @@ public class VoucherService {
             throw new BusinessException(ErrorCode.VOUCHER_ACCESS_DENIED);
         }
         return ApiResponse.success(VoucherResponse.from(voucher));
+    }
+
+    public Voucher findByIdOrThrow(Long voucherId) {
+        return voucherRepository.findById(voucherId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_NOT_FOUND));
     }
 
     public Voucher findByOnChainTokenIdOrThrow(Long onChainTokenId) {

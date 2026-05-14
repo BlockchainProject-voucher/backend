@@ -56,6 +56,10 @@ public class Voucher {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    public void updateTokenUri(String tokenUri) {
+        this.tokenUri = tokenUri;
+    }
+
     // 트랜잭션 전송 직후 호출 — txHash를 즉시 저장해 타임아웃 시 복구 가능하게 함
     public void setPendingTx(String txHash) {
         this.txHash = txHash;
