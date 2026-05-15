@@ -65,7 +65,7 @@ public class VoucherService {
         // ② 트랜잭션 전송 → txHash 즉시 반환
         String txHash;
         try {
-            txHash = blockchainService.sendMintTx(owner.getWalletAddress(), voucher.getTokenUri());
+            txHash = blockchainService.sendMintTx(program.getId().intValue(), owner.getWalletAddress(), voucher.getTokenUri());
         } catch (Exception e) {
             log.error("tx 전송 실패 — wallet: {}, programId: {}", owner.getWalletAddress(), program.getId(), e);
             throw new BusinessException(ErrorCode.MINT_FAILED);

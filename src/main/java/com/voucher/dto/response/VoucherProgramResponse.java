@@ -16,8 +16,9 @@ public class VoucherProgramResponse {
     private String createdByWallet;
     private String name;
     private String description;
-    private String contractAddress;
     private Long maxValue;
+    private Integer totalSupply;
+    private String category;
     private LocalDateTime validFrom;
     private LocalDateTime validUntil;
     private ProgramStatus status;
@@ -30,8 +31,9 @@ public class VoucherProgramResponse {
                 .createdByWallet(program.getCreatedBy().getWalletAddress())
                 .name(program.getName())
                 .description(program.getDescription())
-                .contractAddress(program.getContractAddress())
                 .maxValue(program.getMaxValue())
+                .totalSupply(program.getTotalSupply())
+                .category(program.getCategory())
                 .validFrom(program.getValidFrom())
                 .validUntil(program.getValidUntil())
                 .status(program.getStatus())

@@ -30,7 +30,7 @@ public class MetadataController {
         MetadataResponse metadata = MetadataResponse.builder()
                 .name(voucher.getVoucherProgram().getName() + " #" + voucherId)
                 .description(voucher.getVoucherProgram().getDescription())
-                .image("") // TODO: IPFS or CDN URL 확정 후 교체
+                .image("")
                 .attributes(List.of(
                         MetadataResponse.Attribute.builder()
                                 .traitType("initial_value")

@@ -3,6 +3,8 @@ package com.voucher.controller;
 import com.voucher.dto.request.CreateVoucherProgramRequest;
 import com.voucher.dto.response.ApiResponse;
 import com.voucher.dto.response.VoucherProgramResponse;
+import com.voucher.exception.BusinessException;
+import com.voucher.exception.ErrorCode;
 import com.voucher.service.VoucherProgramService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -10,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,7 +31,12 @@ public class VoucherProgramController {
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     public ApiResponse<VoucherProgramResponse> createProgram(
-            @Valid @RequestBody CreateVoucherProgramRequest request) {
+            @Valid @RequestBody CreateVoucherProgramRequest request,
+            Authentication authentication) {
+        String jwtWallet = (String) authentication.getPrincipal();
+        if (!jwtWallet.equalsIgnoreCase(request.getWalletAddress())) {
+            throw new BusinessException(ErrorCode.WALLET_MISMATCH);
+        }
         return voucherProgramService.createProgram(request);
     }
 

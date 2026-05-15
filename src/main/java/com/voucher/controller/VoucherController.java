@@ -26,10 +26,7 @@ public class VoucherController {
     private final VoucherService voucherService;
 
     @Operation(summary = "바우처 발급 (민팅)",
-            description = """
-                    DB 저장 → 블록체인 mint() 호출 (1초 폴링, 최대 40초) → 온체인 정보 업데이트 순으로 처리됩니다.
-                    현재 BlockchainService는 더미 데이터를 반환합니다. 블록체인팀 컨트랙트 연동 후 실제 트랜잭션이 발생합니다.
-                    """)
+            description = "DB 저장 → 블록체인 mintVoucher() 호출 (1초 폴링, 최대 40초) → 온체인 정보 업데이트 순으로 처리됩니다.")
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     public ApiResponse<VoucherResponse> issueVoucher(

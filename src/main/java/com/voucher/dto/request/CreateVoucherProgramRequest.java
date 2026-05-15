@@ -20,11 +20,16 @@ public class CreateVoucherProgramRequest {
 
     private String description;
 
-    private String contractAddress;
-
     @NotNull(message = "최대 금액은 필수입니다.")
     @Positive(message = "최대 금액은 양수여야 합니다.")
     private Long maxValue;
+
+    @NotNull(message = "총 발행량은 필수입니다.")
+    @Positive(message = "총 발행량은 양수여야 합니다.")
+    private Integer totalSupply;
+
+    @NotBlank(message = "카테고리는 필수입니다.")
+    private String category;
 
     @NotNull(message = "유효 시작일은 필수입니다.")
     private LocalDateTime validFrom;

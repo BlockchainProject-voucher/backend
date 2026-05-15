@@ -1,5 +1,6 @@
 package com.voucher.service;
 
+import com.voucher.blockchain.BlockchainService;
 import com.voucher.domain.Member;
 import com.voucher.domain.VoucherProgram;
 import com.voucher.domain.enums.ProgramStatus;
@@ -14,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigInteger;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,6 +27,7 @@ public class VoucherProgramService {
 
     private final VoucherProgramRepository voucherProgramRepository;
     private final MemberService memberService;
+    private final BlockchainService blockchainService;
 
     @Transactional
     public ApiResponse<VoucherProgramResponse> createProgram(CreateVoucherProgramRequest request) {
@@ -38,13 +42,26 @@ public class VoucherProgramService {
                 .createdBy(requester)
                 .name(request.getName())
                 .description(request.getDescription())
-                .contractAddress(request.getContractAddress())
                 .maxValue(request.getMaxValue())
+                .totalSupply(request.getTotalSupply())
+                .category(request.getCategory())
                 .validFrom(request.getValidFrom())
                 .validUntil(request.getValidUntil())
                 .status(ProgramStatus.ACTIVE)
                 .build();
-        return ApiResponse.success(VoucherProgramResponse.from(voucherProgramRepository.save(program)));
+        VoucherProgram saved = voucherProgramRepository.save(program);
+
+        // DB id를 온체인 programId로 사용 (uint16 범위: 1 ~ 65535)
+        blockchainService.createVoucherProgram(
+                saved.getId().intValue(),
+                saved.getName(),
+                BigInteger.valueOf(saved.getMaxValue()),
+                saved.getValidUntil().toEpochSecond(ZoneOffset.UTC),
+                saved.getTotalSupply(),
+                saved.getCategory()
+        );
+
+        return ApiResponse.success(VoucherProgramResponse.from(saved));
     }
 
     public ApiResponse<List<VoucherProgramResponse>> getActivePrograms() {

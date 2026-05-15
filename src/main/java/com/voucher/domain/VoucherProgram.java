@@ -29,11 +29,14 @@ public class VoucherProgram {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "contract_address", length = 42)
-    private String contractAddress;
-
     @Column(name = "max_value")
     private Long maxValue;
+
+    @Column(name = "total_supply")
+    private Integer totalSupply;
+
+    @Column(length = 50)
+    private String category;
 
     @Column(name = "valid_from")
     private LocalDateTime validFrom;
