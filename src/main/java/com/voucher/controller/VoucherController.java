@@ -3,6 +3,8 @@ package com.voucher.controller;
 import com.voucher.dto.request.CreateVoucherRequest;
 import com.voucher.dto.response.ApiResponse;
 import com.voucher.dto.response.VoucherResponse;
+import com.voucher.exception.BusinessException;
+import com.voucher.exception.ErrorCode;
 import com.voucher.service.VoucherService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -10,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,7 +32,10 @@ public class VoucherController {
                     """)
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
-    public ApiResponse<VoucherResponse> issueVoucher(@Valid @RequestBody CreateVoucherRequest request) {
+    public ApiResponse<VoucherResponse> issueVoucher(
+            @Valid @RequestBody CreateVoucherRequest request,
+            Authentication authentication) {
+        validateWalletOwnership(request.getWalletAddress(), authentication);
         return voucherService.issueVoucher(request);
     }
 
@@ -37,7 +43,9 @@ public class VoucherController {
     @GetMapping("/my/{walletAddress}")
     public ApiResponse<List<VoucherResponse>> getMyVouchers(
             @Parameter(description = "0x 포함 42자 이더리움 주소", example = "0xAbCd1234567890abcdef1234567890ABCDEF1234")
-            @PathVariable String walletAddress) {
+            @PathVariable String walletAddress,
+            Authentication authentication) {
+        validateWalletOwnership(walletAddress, authentication);
         return voucherService.getMyVouchers(walletAddress);
     }
 
@@ -47,7 +55,16 @@ public class VoucherController {
             @Parameter(description = "바우처 DB ID", example = "1")
             @PathVariable Long id,
             @Parameter(description = "소유자 지갑 주소 (소유자 검증용)", example = "0xAbCd1234567890abcdef1234567890ABCDEF1234")
-            @RequestParam String walletAddress) {
+            @RequestParam String walletAddress,
+            Authentication authentication) {
+        validateWalletOwnership(walletAddress, authentication);
         return voucherService.getVoucher(id, walletAddress);
+    }
+
+    private void validateWalletOwnership(String requestWallet, Authentication authentication) {
+        String jwtWallet = (String) authentication.getPrincipal();
+        if (!jwtWallet.equalsIgnoreCase(requestWallet)) {
+            throw new BusinessException(ErrorCode.WALLET_MISMATCH);
+        }
     }
 }

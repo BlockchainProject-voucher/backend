@@ -25,6 +25,7 @@ public enum ErrorCode {
     // Voucher
     VOUCHER_NOT_FOUND(HttpStatus.NOT_FOUND, "바우처를 찾을 수 없습니다."),
     VOUCHER_ACCESS_DENIED(HttpStatus.FORBIDDEN, "해당 바우처에 접근 권한이 없습니다."),
+    WALLET_MISMATCH(HttpStatus.FORBIDDEN, "요청 지갑 주소가 인증된 지갑과 일치하지 않습니다."),
     MINT_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "바우처 민팅에 실패했습니다."),
     MINT_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "블록체인 트랜잭션 응답 대기 시간이 초과되었습니다. (40초)");
 
