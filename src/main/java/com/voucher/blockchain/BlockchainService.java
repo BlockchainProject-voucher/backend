@@ -5,12 +5,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.web3j.abi.FunctionEncoder;
+import org.web3j.abi.FunctionReturnDecoder;
+import org.web3j.abi.TypeReference;
 import org.web3j.abi.datatypes.Address;
+import org.web3j.abi.datatypes.DynamicBytes;
 import org.web3j.abi.datatypes.Function;
+import org.web3j.abi.datatypes.Type;
 import org.web3j.abi.datatypes.Utf8String;
+import org.web3j.abi.datatypes.generated.Bytes32;
 import org.web3j.abi.datatypes.generated.Uint16;
 import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.crypto.Credentials;
+import org.web3j.crypto.Hash;
 import org.web3j.crypto.RawTransaction;
 import org.web3j.crypto.TransactionEncoder;
 import org.web3j.protocol.Web3j;
@@ -20,6 +26,7 @@ import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.utils.Numeric;
 
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -196,6 +203,158 @@ public class BlockchainService {
                 .findFirst()
                 .map(log -> Numeric.toBigInt(log.getTopics().get(3)).longValue())
                 .orElseThrow(() -> new RuntimeException("Transfer 이벤트에서 tokenId를 찾을 수 없습니다."));
+    }
+
+    /**
+     * 가맹점 주소를 온체인에 승인/취소합니다.
+     * 컨트랙트: approveMerchant(address merchant, bool approved)
+     */
+    public void approveMerchant(String merchantAddress, boolean approved) {
+        log.info("[Blockchain] approveMerchant() — merchant: {}, approved: {}", merchantAddress, approved);
+        try {
+            Credentials credentials = Credentials.create(blockchainProperties.getPrivateKey());
+
+            BigInteger nonce = web3j.ethGetTransactionCount(
+                    credentials.getAddress(), DefaultBlockParameterName.LATEST
+            ).send().getTransactionCount();
+
+            BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice();
+
+            Function function = new Function(
+                    "approveMerchant",
+                    List.of(new Address(merchantAddress), new org.web3j.abi.datatypes.Bool(approved)),
+                    Collections.emptyList()
+            );
+
+            RawTransaction rawTx = RawTransaction.createTransaction(
+                    nonce, gasPrice, GAS_LIMIT,
+                    blockchainProperties.getContractAddress(),
+                    FunctionEncoder.encode(function)
+            );
+
+            byte[] signedMessage = TransactionEncoder.signMessage(rawTx, credentials);
+            EthSendTransaction sendResult = web3j.ethSendRawTransaction(
+                    Numeric.toHexString(signedMessage)
+            ).send();
+
+            if (sendResult.hasError()) {
+                throw new RuntimeException("approveMerchant 전송 실패: " + sendResult.getError().getMessage());
+            }
+
+            TransactionReceipt receipt = waitForReceipt(sendResult.getTransactionHash());
+            if (!"0x1".equals(receipt.getStatus())) {
+                throw new RuntimeException("approveMerchant revert — txHash: " + receipt.getTransactionHash());
+            }
+
+            log.info("[Blockchain] approveMerchant 완료 — merchant: {}, approved: {}", merchantAddress, approved);
+
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("approveMerchant 중 오류: " + e.getMessage(), e);
+        }
+    }
+
+    /** 컨트랙트에서 useNonce[tokenId] 값을 읽어옵니다 (EIP-712 서명 시 필요). */
+    public BigInteger getUseNonce(Long onChainTokenId) {
+        try {
+            Function function = new Function(
+                    "useNonce",
+                    List.of(new Uint256(BigInteger.valueOf(onChainTokenId))),
+                    List.of(new TypeReference<Uint256>() {})
+            );
+            org.web3j.protocol.core.methods.request.Transaction tx =
+                    org.web3j.protocol.core.methods.request.Transaction.createEthCallTransaction(
+                            null, blockchainProperties.getContractAddress(), FunctionEncoder.encode(function));
+            String result = web3j.ethCall(tx, DefaultBlockParameterName.LATEST).send().getValue();
+            List<Type> decoded = FunctionReturnDecoder.decode(result, function.getOutputParameters());
+            return ((Uint256) decoded.get(0)).getValue();
+        } catch (Exception e) {
+            throw new RuntimeException("useNonce 조회 실패: " + e.getMessage(), e);
+        }
+    }
+
+    /** 연결된 체인의 chainId를 반환합니다 (EIP-712 도메인에 필요). */
+    public long getChainId() {
+        try {
+            return web3j.ethChainId().send().getChainId().longValue();
+        } catch (Exception e) {
+            throw new RuntimeException("chainId 조회 실패: " + e.getMessage(), e);
+        }
+    }
+
+    /** 백엔드 서명 지갑 주소를 반환합니다 (EIP-712 merchant 필드에 사용). */
+    public String getBackendWalletAddress() {
+        return Credentials.create(blockchainProperties.getPrivateKey()).getAddress();
+    }
+
+    /** 배포된 컨트랙트 주소를 반환합니다 (EIP-712 verifyingContract 필드에 사용). */
+    public String getContractAddress() {
+        return blockchainProperties.getContractAddress();
+    }
+
+    /** canonicalJson의 keccak256 해시를 반환합니다 (metadataHash 생성). */
+    public String computeMetadataHash(String canonicalJson) {
+        byte[] hashBytes = Hash.sha3(canonicalJson.getBytes(StandardCharsets.UTF_8));
+        return Numeric.toHexString(hashBytes);
+    }
+
+    /**
+     * useVoucherByMerchant 트랜잭션을 전송하고 txHash를 즉시 반환합니다.
+     * 컨트랙트: useVoucherByMerchant(uint256 tokenId, uint256 amount, bytes32 metadataHash, uint256 deadline, bytes ownerSignature)
+     */
+    public String sendUseVoucherTx(Long onChainTokenId, Long amount, String metadataHash,
+                                   long deadline, String ownerSignature) {
+        log.info("[Blockchain] sendUseVoucherTx() — tokenId: {}, amount: {}", onChainTokenId, amount);
+        try {
+            Credentials credentials = Credentials.create(blockchainProperties.getPrivateKey());
+
+            BigInteger nonce = web3j.ethGetTransactionCount(
+                    credentials.getAddress(), DefaultBlockParameterName.LATEST
+            ).send().getTransactionCount();
+
+            BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice();
+
+            byte[] metadataHashBytes = Numeric.hexStringToByteArray(metadataHash);
+            byte[] metadataHash32 = new byte[32];
+            System.arraycopy(metadataHashBytes, metadataHashBytes.length - 32, metadataHash32, 0, 32);
+
+            Function function = new Function(
+                    "useVoucherByMerchant",
+                    List.of(
+                            new Uint256(BigInteger.valueOf(onChainTokenId)),
+                            new Uint256(BigInteger.valueOf(amount)),
+                            new Bytes32(metadataHash32),
+                            new Uint256(BigInteger.valueOf(deadline)),
+                            new DynamicBytes(Numeric.hexStringToByteArray(ownerSignature))
+                    ),
+                    Collections.emptyList()
+            );
+
+            RawTransaction rawTx = RawTransaction.createTransaction(
+                    nonce, gasPrice, GAS_LIMIT,
+                    blockchainProperties.getContractAddress(),
+                    FunctionEncoder.encode(function)
+            );
+
+            byte[] signedMessage = TransactionEncoder.signMessage(rawTx, credentials);
+            EthSendTransaction sendResult = web3j.ethSendRawTransaction(
+                    Numeric.toHexString(signedMessage)
+            ).send();
+
+            if (sendResult.hasError()) {
+                throw new RuntimeException("useVoucherByMerchant 전송 실패: " + sendResult.getError().getMessage());
+            }
+
+            String txHash = sendResult.getTransactionHash();
+            log.info("[Blockchain] useVoucher tx sent — txHash: {}", txHash);
+            return txHash;
+
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("useVoucherByMerchant 전송 중 오류: " + e.getMessage(), e);
+        }
     }
 
     public String generateTokenUri(Long voucherId, String baseUrl) {

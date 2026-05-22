@@ -60,6 +60,14 @@ public class Voucher {
         this.tokenUri = tokenUri;
     }
 
+    public void use(Long amount) {
+        this.currentValue -= amount;
+        if (this.currentValue <= 0) {
+            this.currentValue = 0L;
+            this.status = VoucherStatus.USED_UP;
+        }
+    }
+
     // 트랜잭션 전송 직후 호출 — txHash를 즉시 저장해 타임아웃 시 복구 가능하게 함
     public void setPendingTx(String txHash) {
         this.txHash = txHash;

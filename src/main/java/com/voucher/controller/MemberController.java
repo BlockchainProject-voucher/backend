@@ -4,6 +4,8 @@ import com.voucher.dto.request.CreateMerchantRequest;
 import com.voucher.dto.request.CreateUserRequest;
 import com.voucher.dto.response.ApiResponse;
 import com.voucher.dto.response.MemberResponse;
+import com.voucher.exception.BusinessException;
+import com.voucher.exception.ErrorCode;
 import com.voucher.service.MemberService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -11,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Member", description = "회원 관리 (지갑 주소 기반)")
@@ -33,6 +36,17 @@ public class MemberController {
     @PostMapping("/merchant")
     public ApiResponse<MemberResponse> registerMerchant(@Valid @RequestBody CreateMerchantRequest request) {
         return memberService.registerMerchant(request);
+    }
+
+    @Operation(summary = "가맹점 온체인 승인/취소 [ADMIN]",
+            description = "approved=true: 승인, approved=false: 취소. 온체인 approveMerchant() 호출.")
+    @PostMapping("/merchant/{walletAddress}/approve")
+    public ApiResponse<MemberResponse> approveMerchant(
+            @Parameter(description = "가맹점 지갑 주소") @PathVariable String walletAddress,
+            @Parameter(description = "승인 여부") @RequestParam boolean approved,
+            Authentication authentication) {
+        String requesterWallet = (String) authentication.getPrincipal();
+        return memberService.approveMerchant(requesterWallet, walletAddress, approved);
     }
 
     @Operation(summary = "지갑 주소 존재 여부 확인",

@@ -1,5 +1,6 @@
 package com.voucher.service;
 
+import com.voucher.blockchain.BlockchainService;
 import com.voucher.domain.Member;
 import com.voucher.domain.enums.Role;
 import com.voucher.dto.request.CreateMerchantRequest;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberService {
 
     private final MemberRepository memberRepository;
+    private final BlockchainService blockchainService;
 
     @Transactional
     public ApiResponse<MemberResponse> registerUser(CreateUserRequest request) {
@@ -49,6 +51,21 @@ public class MemberService {
 
     public ApiResponse<MemberResponse> getMemberByWallet(String walletAddress) {
         return ApiResponse.success(MemberResponse.from(findByWalletOrThrow(walletAddress)));
+    }
+
+    public ApiResponse<MemberResponse> approveMerchant(String requesterWallet, String merchantWallet, boolean approved) {
+        Member requester = findByWalletOrThrow(requesterWallet);
+        if (requester.getRole() != Role.ADMIN) {
+            throw new BusinessException(ErrorCode.NOT_ADMIN);
+        }
+
+        Member merchant = findByWalletOrThrow(merchantWallet);
+        if (merchant.getRole() != Role.MERCHANT) {
+            throw new BusinessException(ErrorCode.NOT_MERCHANT);
+        }
+
+        blockchainService.approveMerchant(merchantWallet, approved);
+        return ApiResponse.success(MemberResponse.from(merchant));
     }
 
     public Member findByWalletOrThrow(String walletAddress) {

@@ -3,13 +3,16 @@ package com.voucher.service;
 import com.voucher.domain.Member;
 import com.voucher.domain.Voucher;
 import com.voucher.domain.VoucherProgram;
+import com.voucher.domain.VoucherUseHistory;
 import com.voucher.domain.enums.VoucherStatus;
+import com.voucher.dto.response.VoucherUseHistoryResponse;
 import com.voucher.dto.response.VoucherResponse;
 import com.voucher.exception.BusinessException;
 import com.voucher.exception.ErrorCode;
 import com.voucher.repository.MemberRepository;
 import com.voucher.repository.VoucherProgramRepository;
 import com.voucher.repository.VoucherRepository;
+import com.voucher.repository.VoucherUseHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +28,7 @@ class VoucherPersistenceService {
     private final VoucherRepository voucherRepository;
     private final MemberRepository memberRepository;
     private final VoucherProgramRepository voucherProgramRepository;
+    private final VoucherUseHistoryRepository voucherUseHistoryRepository;
 
     /** ① PENDING 바우처 INSERT 후 tokenUri 설정 → 즉시 커밋 (voucherId 확보) */
     @Transactional
@@ -65,5 +69,18 @@ class VoucherPersistenceService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_NOT_FOUND));
         voucher.confirmMinting(tokenId, txHash, blockNumber);
         return VoucherResponse.from(voucher);
+    }
+
+    /** 바우처 사용 확정: 이력 CONFIRMED 처리 + 바우처 currentValue 차감 → 즉시 커밋 */
+    @Transactional
+    public VoucherUseHistoryResponse confirmUse(Long historyId, String txHash, Long blockNumber) {
+        VoucherUseHistory history = voucherUseHistoryRepository.findById(historyId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USE_HISTORY_NOT_FOUND));
+        history.confirm(txHash, blockNumber);
+
+        Voucher voucher = history.getVoucher();
+        voucher.use(history.getAmount());
+
+        return VoucherUseHistoryResponse.from(history);
     }
 }
