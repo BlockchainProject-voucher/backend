@@ -26,7 +26,7 @@ public class AuthService {
 
     @Transactional
     public String issueNonce(String walletAddress) {
-        Member member = memberRepository.findByWalletAddress(walletAddress)
+        Member member = memberRepository.findByWalletAddress(walletAddress.toLowerCase())
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
         String nonce = UUID.randomUUID().toString();
         member.updateNonce(nonce);
@@ -35,7 +35,7 @@ public class AuthService {
 
     @Transactional
     public String verify(String walletAddress, String signature) {
-        Member member = memberRepository.findByWalletAddress(walletAddress)
+        Member member = memberRepository.findByWalletAddress(walletAddress.toLowerCase())
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
         String message = buildSignMessage(member.getNonce());

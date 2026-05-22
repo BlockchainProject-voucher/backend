@@ -24,9 +24,10 @@ public class MemberService {
 
     @Transactional
     public ApiResponse<MemberResponse> registerUser(CreateUserRequest request) {
-        validateDuplicateWallet(request.getWalletAddress());
+        String wallet = request.getWalletAddress().toLowerCase();
+        validateDuplicateWallet(wallet);
         Member member = Member.builder()
-                .walletAddress(request.getWalletAddress())
+                .walletAddress(wallet)
                 .nickname(request.getNickname())
                 .role(Role.USER)
                 .build();
@@ -35,9 +36,10 @@ public class MemberService {
 
     @Transactional
     public ApiResponse<MemberResponse> registerMerchant(CreateMerchantRequest request) {
-        validateDuplicateWallet(request.getWalletAddress());
+        String wallet = request.getWalletAddress().toLowerCase();
+        validateDuplicateWallet(wallet);
         Member member = Member.builder()
-                .walletAddress(request.getWalletAddress())
+                .walletAddress(wallet)
                 .nickname(request.getNickname())
                 .role(Role.MERCHANT)
                 .category(request.getCategory())

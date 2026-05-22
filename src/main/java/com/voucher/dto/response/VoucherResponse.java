@@ -20,8 +20,8 @@ public class VoucherResponse {
     private String ownerNickname;
     private Long currentValue;
     private Long initialValue;
-    private String category;
-    private LocalDateTime expiryDate;
+    private String programCategory;
+    private LocalDateTime programValidUntil;
     private String issuedBy;
     private String tokenUri;
     private String txHash;
@@ -41,8 +41,8 @@ public class VoucherResponse {
                 .ownerNickname(voucher.getOwner().getNickname())
                 .currentValue(voucher.getCurrentValue())
                 .initialValue(voucher.getInitialValue())
-                .category(voucher.getVoucherProgram().getCategory())
-                .expiryDate(voucher.getVoucherProgram().getValidUntil())
+                .programCategory(voucher.getVoucherProgram().getCategory())
+                .programValidUntil(voucher.getVoucherProgram().getValidUntil())
                 .issuedBy(voucher.getVoucherProgram().getCreatedBy().getWalletAddress())
                 .tokenUri(voucher.getTokenUri())
                 .txHash(voucher.getTxHash())
