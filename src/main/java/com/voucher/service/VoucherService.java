@@ -167,6 +167,10 @@ public class VoucherService {
                     );
                     return UseVoucherPrepareResponse.builder()
                             .historyId(history.getId())
+                            .voucherId(history.getVoucher().getId())
+                            .amount(history.getAmount())
+                            .merchantNickname(history.getMerchant().getNickname())
+                            .programName(history.getVoucher().getVoucherProgram().getName())
                             .metadataHash(history.getMetadataHash())
                             .nonce(BigInteger.valueOf(history.getUseNonce()))
                             .deadline(history.getDeadline())
@@ -273,6 +277,10 @@ public class VoucherService {
 
         return UseVoucherPrepareResponse.builder()
                 .historyId(history.getId())
+                .voucherId(voucher.getId())
+                .amount(amount)
+                .merchantNickname(merchant.getNickname())
+                .programName(voucher.getVoucherProgram().getName())
                 .metadataHash(metadataHash)
                 .nonce(onChainNonce)
                 .deadline(deadline)
