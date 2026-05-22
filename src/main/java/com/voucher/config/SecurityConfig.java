@@ -30,6 +30,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/members/check/**").permitAll()
                 .requestMatchers("/api/metadata/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                // 아래 경로는 JWT 인증 필요
+                .requestMatchers("/api/merchant/**").authenticated()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex
