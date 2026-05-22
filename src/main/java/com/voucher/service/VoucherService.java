@@ -151,6 +151,7 @@ public class VoucherService {
                         ownerWallet, UseStatus.PENDING);
 
         long chainId = blockchainService.getChainId();
+        String backendWallet = blockchainService.getBackendWalletAddress();
 
         List<UseVoucherPrepareResponse> responses = pending.stream()
                 .map(history -> {
@@ -158,7 +159,7 @@ public class VoucherService {
                             chainId,
                             history.getVoucher().getOnChainTokenId(),
                             history.getVoucher().getOwner().getWalletAddress(),
-                            history.getMerchant().getWalletAddress(),
+                            backendWallet, // EIP-712 merchant = 백엔드 지갑
                             history.getAmount(),
                             history.getMetadataHash(),
                             BigInteger.valueOf(history.getUseNonce()),
@@ -240,6 +241,11 @@ public class VoucherService {
         long chainId = blockchainService.getChainId();
         long deadline = Instant.now().plusSeconds(600).getEpochSecond(); // 10분
 
+        // EIP-712의 merchant는 tx를 전송하는 백엔드 지갑이어야 함
+        // 컨트랙트가 msg.sender로 structHash를 계산하므로, 서명 시 merchant = msg.sender = backendWallet
+        // 실제 가맹점 정보는 canonical JSON(RDB 감사용)에만 기록
+        String backendWallet = blockchainService.getBackendWalletAddress();
+
         VoucherUseHistory history = VoucherUseHistory.builder()
                 .voucher(voucher)
                 .merchant(merchant)
@@ -252,13 +258,15 @@ public class VoucherService {
                 .build();
         history = voucherUseHistoryRepository.save(history);
 
+        // canonical JSON에는 실제 가맹점 지갑 기록 (오프체인 감사 추적용)
         String canonicalJson = buildCanonicalJson(history.getId(), voucher.getOnChainTokenId(),
                 ownerWallet, merchant.getWalletAddress(), amount, oldValue, newValue, deadline);
         String metadataHash = blockchainService.computeMetadataHash(canonicalJson);
         history.setMetadataInfo(canonicalJson, metadataHash);
 
+        // EIP-712 merchant = 백엔드 지갑 (useVoucherByMerchant 호출 시 msg.sender)
         Map<String, Object> eip712 = buildEip712Data(chainId,
-                voucher.getOnChainTokenId(), ownerWallet, merchant.getWalletAddress(),
+                voucher.getOnChainTokenId(), ownerWallet, backendWallet,
                 amount, metadataHash, onChainNonce, deadline);
 
         log.info("바우처 사용 준비 완료 — historyId: {}, metadataHash: {}", history.getId(), metadataHash);
