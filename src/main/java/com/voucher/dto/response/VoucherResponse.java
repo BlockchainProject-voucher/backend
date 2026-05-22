@@ -17,8 +17,12 @@ public class VoucherResponse {
     private String programName;
     private Long ownerId;
     private String ownerWallet;
+    private String ownerNickname;
     private Long currentValue;
     private Long initialValue;
+    private String category;
+    private LocalDateTime expiryDate;
+    private String issuedBy;
     private String tokenUri;
     private String txHash;
     private Long blockNumber;
@@ -34,8 +38,12 @@ public class VoucherResponse {
                 .programName(voucher.getVoucherProgram().getName())
                 .ownerId(voucher.getOwner().getId())
                 .ownerWallet(voucher.getOwner().getWalletAddress())
+                .ownerNickname(voucher.getOwner().getNickname())
                 .currentValue(voucher.getCurrentValue())
                 .initialValue(voucher.getInitialValue())
+                .category(voucher.getVoucherProgram().getCategory())
+                .expiryDate(voucher.getVoucherProgram().getValidUntil())
+                .issuedBy(voucher.getVoucherProgram().getCreatedBy().getWalletAddress())
                 .tokenUri(voucher.getTokenUri())
                 .txHash(voucher.getTxHash())
                 .blockNumber(voucher.getBlockNumber())
