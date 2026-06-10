@@ -69,7 +69,7 @@ public class AuthService {
                     Arrays.copyOfRange(sigBytes, 32, 64)
             );
 
-            BigInteger publicKey = Sign.signedMessageToKey(
+            BigInteger publicKey = Sign.signedPrefixedMessageToKey(
                     message.getBytes(StandardCharsets.UTF_8), sigData);
             return "0x" + Keys.getAddress(publicKey);
         } catch (Exception e) {
