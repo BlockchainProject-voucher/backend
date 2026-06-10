@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface VoucherRepository extends JpaRepository<Voucher, Long> {
     List<Voucher> findAllByOwner(Member owner);
     Optional<Voucher> findByOnChainTokenId(Long onChainTokenId);
+    boolean existsByOwnerAndVoucherProgram_Id(Member owner, Long programId);
 }

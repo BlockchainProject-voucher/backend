@@ -13,6 +13,12 @@ public enum ErrorCode {
     WALLET_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 등록된 지갑 주소입니다."),
     NOT_ADMIN(HttpStatus.FORBIDDEN, "관리자 권한이 필요합니다."),
     NOT_MERCHANT(HttpStatus.BAD_REQUEST, "가맹점 회원이 아닙니다."),
+    NOT_USER(HttpStatus.BAD_REQUEST, "일반 사용자 회원이 아닙니다."),
+
+    // 바우처 자격요건
+    ELIGIBILITY_AGE(HttpStatus.BAD_REQUEST, "나이 요건을 충족하지 않습니다."),
+    ELIGIBILITY_REGION(HttpStatus.BAD_REQUEST, "지역 요건을 충족하지 않습니다."),
+    ALREADY_ISSUED(HttpStatus.CONFLICT, "이미 발급받은 바우처 프로그램입니다."),
 
     // VoucherProgram
     VOUCHER_PROGRAM_NOT_FOUND(HttpStatus.NOT_FOUND, "바우처 프로그램을 찾을 수 없습니다."),

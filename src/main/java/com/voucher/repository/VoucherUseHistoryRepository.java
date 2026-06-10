@@ -10,4 +10,5 @@ public interface VoucherUseHistoryRepository extends JpaRepository<VoucherUseHis
     List<VoucherUseHistory> findAllByVoucherId(Long voucherId);
     List<VoucherUseHistory> findAllByVoucher_Owner_WalletAddressIgnoreCaseAndStatusOrderByIdDesc(
             String walletAddress, UseStatus status);
+    List<VoucherUseHistory> findAllByMerchant_WalletAddressIgnoreCaseOrderByIdDesc(String merchantWallet);
 }

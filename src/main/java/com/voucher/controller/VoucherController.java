@@ -1,5 +1,6 @@
 package com.voucher.controller;
 
+import com.voucher.dto.request.ApplyVoucherRequest;
 import com.voucher.dto.request.CreateVoucherRequest;
 import com.voucher.dto.request.UseVoucherPrepareRequest;
 import com.voucher.dto.request.UseVoucherRequest;
@@ -41,6 +42,17 @@ public class VoucherController {
             Authentication authentication) {
         validateWalletOwnership(request.getWalletAddress(), authentication);
         return voucherService.issueVoucher(request);
+    }
+
+    @Operation(summary = "바우처 자동 신청",
+            description = "회원 개인정보(나이·지역)로 자격요건을 확인한 뒤 NFT를 민팅합니다.")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping("/apply")
+    public ApiResponse<VoucherResponse> applyVoucher(
+            @Valid @RequestBody ApplyVoucherRequest request,
+            Authentication authentication) {
+        validateWalletOwnership(request.getWalletAddress(), authentication);
+        return voucherService.applyVoucher(request);
     }
 
     @Operation(summary = "내 바우처 목록 조회")

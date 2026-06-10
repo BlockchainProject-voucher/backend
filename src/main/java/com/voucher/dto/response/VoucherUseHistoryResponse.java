@@ -15,6 +15,8 @@ public class VoucherUseHistoryResponse {
     private Long voucherId;
     private Long onChainTokenId;
     private String merchantWallet;
+    private String merchantNickname;
+    private String programName;
     private Long amount;
     private Long oldValue;
     private Long newValue;
@@ -22,6 +24,7 @@ public class VoucherUseHistoryResponse {
     private String txHash;
     private Long blockNumber;
     private UseStatus status;
+    private Long deadline;
     private LocalDateTime usedAt;
 
     public static VoucherUseHistoryResponse from(VoucherUseHistory h) {
@@ -30,6 +33,8 @@ public class VoucherUseHistoryResponse {
                 .voucherId(h.getVoucher().getId())
                 .onChainTokenId(h.getVoucher().getOnChainTokenId())
                 .merchantWallet(h.getMerchant().getWalletAddress())
+                .merchantNickname(h.getMerchant().getNickname())
+                .programName(h.getVoucher().getVoucherProgram().getName())
                 .amount(h.getAmount())
                 .oldValue(h.getOldValue())
                 .newValue(h.getNewValue())
@@ -37,6 +42,7 @@ public class VoucherUseHistoryResponse {
                 .txHash(h.getTxHash())
                 .blockNumber(h.getBlockNumber())
                 .status(h.getStatus())
+                .deadline(h.getDeadline())
                 .usedAt(h.getUsedAt())
                 .build();
     }
