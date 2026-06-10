@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -28,6 +29,16 @@ public class Member {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private Role role;
+
+    // USER일 때만 값 있음
+    @Column(length = 50)
+    private String name;
+
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
+
+    @Column(length = 20)
+    private String region;
 
     // MERCHANT일 때만 값 있음, USER/ADMIN은 null
     @Column(nullable = true)

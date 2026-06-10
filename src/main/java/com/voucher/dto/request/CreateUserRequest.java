@@ -1,10 +1,13 @@
 package com.voucher.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
 
 @Getter
 @NoArgsConstructor
@@ -17,4 +20,15 @@ public class CreateUserRequest {
     @NotBlank(message = "닉네임은 필수입니다.")
     @Size(max = 50, message = "닉네임은 50자 이하여야 합니다.")
     private String nickname;
+
+    @NotBlank(message = "이름은 필수입니다.")
+    @Size(max = 50, message = "이름은 50자 이하여야 합니다.")
+    private String name;
+
+    @NotNull(message = "생년월일은 필수입니다.")
+    private LocalDate birthDate;
+
+    @NotBlank(message = "지역은 필수입니다.")
+    @Size(max = 20, message = "지역은 20자 이하여야 합니다.")
+    private String region;
 }

@@ -29,6 +29,9 @@ public class MemberService {
         Member member = Member.builder()
                 .walletAddress(wallet)
                 .nickname(request.getNickname())
+                .name(request.getName())
+                .birthDate(request.getBirthDate())
+                .region(request.getRegion())
                 .role(Role.USER)
                 .build();
         return ApiResponse.success(MemberResponse.from(memberRepository.save(member)));
