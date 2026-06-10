@@ -1,6 +1,7 @@
 package com.voucher.controller;
 
 import com.voucher.dto.request.CreateVoucherProgramRequest;
+import com.voucher.dto.request.UpdateVoucherProgramRequest;
 import com.voucher.dto.response.ApiResponse;
 import com.voucher.dto.response.VoucherProgramResponse;
 import com.voucher.exception.BusinessException;
@@ -52,5 +53,27 @@ public class VoucherProgramController {
             @Parameter(description = "바우처 프로그램 ID", example = "1")
             @PathVariable Long id) {
         return voucherProgramService.getProgram(id);
+    }
+
+    @Operation(summary = "바우처 프로그램 수정 [ADMIN]")
+    @PutMapping("/{id}")
+    public ApiResponse<VoucherProgramResponse> updateProgram(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateVoucherProgramRequest request,
+            Authentication authentication) {
+        String jwtWallet = (String) authentication.getPrincipal();
+        if (!jwtWallet.equalsIgnoreCase(request.getWalletAddress())) {
+            throw new BusinessException(ErrorCode.WALLET_MISMATCH);
+        }
+        return voucherProgramService.updateProgram(id, request);
+    }
+
+    @Operation(summary = "바우처 프로그램 삭제 [ADMIN]", description = "status를 ENDED로 변경합니다.")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> deleteProgram(
+            @PathVariable Long id,
+            Authentication authentication) {
+        String walletAddress = (String) authentication.getPrincipal();
+        return voucherProgramService.deleteProgram(id, walletAddress);
     }
 }

@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @Getter
 @NoArgsConstructor
-public class CreateVoucherProgramRequest {
+public class UpdateVoucherProgramRequest {
 
     @NotBlank(message = "요청자 지갑 주소는 필수입니다.")
     private String walletAddress;
@@ -37,11 +37,9 @@ public class CreateVoucherProgramRequest {
     @NotNull(message = "유효 종료일은 필수입니다.")
     private LocalDateTime validUntil;
 
-    // 자격요건 — null이면 제한 없음
     private Integer minAge;
     private Integer maxAge;
     private String allowedRegions;
-
     private String usageGuide;
     private String issuanceGuide;
     private String refundPolicy;

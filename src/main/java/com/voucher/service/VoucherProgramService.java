@@ -6,6 +6,7 @@ import com.voucher.domain.VoucherProgram;
 import com.voucher.domain.enums.ProgramStatus;
 import com.voucher.domain.enums.Role;
 import com.voucher.dto.request.CreateVoucherProgramRequest;
+import com.voucher.dto.request.UpdateVoucherProgramRequest;
 import com.voucher.dto.response.ApiResponse;
 import com.voucher.dto.response.VoucherProgramResponse;
 import com.voucher.exception.BusinessException;
@@ -47,6 +48,12 @@ public class VoucherProgramService {
                 .category(request.getCategory())
                 .validFrom(request.getValidFrom())
                 .validUntil(request.getValidUntil())
+                .minAge(request.getMinAge())
+                .maxAge(request.getMaxAge())
+                .allowedRegions(request.getAllowedRegions())
+                .usageGuide(request.getUsageGuide())
+                .issuanceGuide(request.getIssuanceGuide())
+                .refundPolicy(request.getRefundPolicy())
                 .status(ProgramStatus.ACTIVE)
                 .build();
         VoucherProgram saved = voucherProgramRepository.save(program);
@@ -74,6 +81,38 @@ public class VoucherProgramService {
 
     public ApiResponse<VoucherProgramResponse> getProgram(Long id) {
         return ApiResponse.success(VoucherProgramResponse.from(findByIdOrThrow(id)));
+    }
+
+    @Transactional
+    public ApiResponse<VoucherProgramResponse> updateProgram(Long id, UpdateVoucherProgramRequest request) {
+        Member requester = memberService.findByWalletOrThrow(request.getWalletAddress());
+        if (requester.getRole() != Role.ADMIN) {
+            throw new BusinessException(ErrorCode.NOT_ADMIN);
+        }
+        VoucherProgram program = findByIdOrThrow(id);
+        if (!program.getName().equals(request.getName()) &&
+                voucherProgramRepository.existsByName(request.getName())) {
+            throw new BusinessException(ErrorCode.VOUCHER_PROGRAM_NAME_DUPLICATE);
+        }
+        program.update(
+                request.getName(), request.getDescription(),
+                request.getMaxValue(), request.getTotalSupply(),
+                request.getCategory(), request.getValidFrom(), request.getValidUntil(),
+                request.getMinAge(), request.getMaxAge(), request.getAllowedRegions(),
+                request.getUsageGuide(), request.getIssuanceGuide(), request.getRefundPolicy()
+        );
+        return ApiResponse.success(VoucherProgramResponse.from(program));
+    }
+
+    @Transactional
+    public ApiResponse<Void> deleteProgram(Long id, String walletAddress) {
+        Member requester = memberService.findByWalletOrThrow(walletAddress);
+        if (requester.getRole() != Role.ADMIN) {
+            throw new BusinessException(ErrorCode.NOT_ADMIN);
+        }
+        VoucherProgram program = findByIdOrThrow(id);
+        program.end();
+        return ApiResponse.success(null);
     }
 
     public VoucherProgram findByIdOrThrow(Long id) {

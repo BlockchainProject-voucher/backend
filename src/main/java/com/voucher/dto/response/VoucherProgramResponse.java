@@ -22,6 +22,12 @@ public class VoucherProgramResponse {
     private LocalDateTime validFrom;
     private LocalDateTime validUntil;
     private ProgramStatus status;
+    private Integer minAge;
+    private Integer maxAge;
+    private String allowedRegions;
+    private String usageGuide;
+    private String issuanceGuide;
+    private String refundPolicy;
     private LocalDateTime createdAt;
 
     public static VoucherProgramResponse from(VoucherProgram program) {
@@ -37,6 +43,12 @@ public class VoucherProgramResponse {
                 .validFrom(program.getValidFrom())
                 .validUntil(program.getValidUntil())
                 .status(program.getStatus())
+                .minAge(program.getMinAge())
+                .maxAge(program.getMaxAge())
+                .allowedRegions(program.getAllowedRegions())
+                .usageGuide(program.getUsageGuide())
+                .issuanceGuide(program.getIssuanceGuide())
+                .refundPolicy(program.getRefundPolicy())
                 .createdAt(program.getCreatedAt())
                 .build();
     }
