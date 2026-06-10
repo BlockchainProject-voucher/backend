@@ -1,6 +1,7 @@
 package com.voucher.blockchain;
 
 import com.voucher.config.BlockchainProperties;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,6 +47,25 @@ public class BlockchainService {
 
     private final Web3j web3j;
     private final BlockchainProperties blockchainProperties;
+
+    /**
+     * 백엔드 지갑이 컨트랙트에서 approvedMerchant로 등록되지 않았으면 자동 등록합니다.
+     * useVoucherByMerchant 호출 시 msg.sender(=백엔드 지갑)가 approvedMerchant여야 통과.
+     */
+    @PostConstruct
+    public void ensureBackendWalletApproved() {
+        try {
+            String backendWallet = getBackendWalletAddress();
+            if (!isApprovedMerchant(backendWallet)) {
+                log.info("[Blockchain] 백엔드 지갑({})을 approvedMerchant로 등록합니다.", backendWallet);
+                approveMerchant(backendWallet, true);
+            } else {
+                log.info("[Blockchain] 백엔드 지갑({})은 이미 approvedMerchant 상태입니다.", backendWallet);
+            }
+        } catch (Exception e) {
+            log.warn("[Blockchain] approvedMerchant 자동 등록 실패 (무시): {}", e.getMessage());
+        }
+    }
 
     /**
      * 바우처 프로그램을 온체인에 등록합니다. (동기 — 완료 후 반환)
@@ -359,5 +379,24 @@ public class BlockchainService {
 
     public String generateTokenUri(Long voucherId, String baseUrl) {
         return baseUrl + "/api/metadata/" + voucherId;
+    }
+
+    /** 컨트랙트의 approvedMerchant 매핑 값을 조회합니다. */
+    public boolean isApprovedMerchant(String walletAddress) {
+        try {
+            Function function = new Function(
+                    "approvedMerchant",
+                    List.of(new Address(walletAddress)),
+                    List.of(new TypeReference<org.web3j.abi.datatypes.Bool>() {})
+            );
+            org.web3j.protocol.core.methods.request.Transaction tx =
+                    org.web3j.protocol.core.methods.request.Transaction.createEthCallTransaction(
+                            null, blockchainProperties.getContractAddress(), FunctionEncoder.encode(function));
+            String result = web3j.ethCall(tx, DefaultBlockParameterName.LATEST).send().getValue();
+            List<Type> decoded = FunctionReturnDecoder.decode(result, function.getOutputParameters());
+            return ((org.web3j.abi.datatypes.Bool) decoded.get(0)).getValue();
+        } catch (Exception e) {
+            throw new RuntimeException("approvedMerchant 조회 실패: " + e.getMessage(), e);
+        }
     }
 }
