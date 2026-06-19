@@ -21,8 +21,13 @@ import org.web3j.crypto.Hash;
 import org.web3j.crypto.RawTransaction;
 import org.web3j.crypto.TransactionEncoder;
 import org.web3j.protocol.Web3j;
+import org.web3j.protocol.core.DefaultBlockParameter;
 import org.web3j.protocol.core.DefaultBlockParameterName;
+import org.web3j.protocol.core.DefaultBlockParameterNumber;
+import org.web3j.protocol.core.methods.request.EthFilter;
+import org.web3j.protocol.core.methods.response.EthLog;
 import org.web3j.protocol.core.methods.response.EthSendTransaction;
+import org.web3j.protocol.core.methods.response.Log;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.utils.Numeric;
 
@@ -294,6 +299,25 @@ public class BlockchainService {
         }
     }
 
+    /** 컨트랙트에서 voucherValue[tokenId] (잔액)를 읽어옵니다. 무결성 검증용. */
+    public BigInteger getVoucherValue(Long onChainTokenId) {
+        try {
+            Function function = new Function(
+                    "voucherValue",
+                    List.of(new Uint256(BigInteger.valueOf(onChainTokenId))),
+                    List.of(new TypeReference<Uint256>() {})
+            );
+            org.web3j.protocol.core.methods.request.Transaction tx =
+                    org.web3j.protocol.core.methods.request.Transaction.createEthCallTransaction(
+                            null, blockchainProperties.getContractAddress(), FunctionEncoder.encode(function));
+            String result = web3j.ethCall(tx, DefaultBlockParameterName.LATEST).send().getValue();
+            List<Type> decoded = FunctionReturnDecoder.decode(result, function.getOutputParameters());
+            return ((Uint256) decoded.get(0)).getValue();
+        } catch (Exception e) {
+            throw new RuntimeException("voucherValue 조회 실패: " + e.getMessage(), e);
+        }
+    }
+
     /** 연결된 체인의 chainId를 반환합니다 (EIP-712 도메인에 필요). */
     public long getChainId() {
         try {
@@ -379,6 +403,39 @@ public class BlockchainService {
 
     public String generateTokenUri(Long voucherId, String baseUrl) {
         return baseUrl + "/api/metadata/" + voucherId;
+    }
+
+    /** 현재 체인의 latest 블록 번호를 반환합니다. (이벤트 스캐너에서 스캔 상한으로 사용) */
+    public BigInteger getCurrentBlockNumber() {
+        try {
+            return web3j.ethBlockNumber().send().getBlockNumber();
+        } catch (Exception e) {
+            throw new RuntimeException("currentBlockNumber 조회 실패: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 지정된 블록 범위에서 컨트랙트의 특정 이벤트 토픽 로그를 조회합니다.
+     * fromBlock ~ toBlock (inclusive). 이벤트 시그니처 토픽(keccak256)으로 필터링.
+     */
+    public List<Log> getEventLogs(BigInteger fromBlock, BigInteger toBlock, String eventSignatureTopic) {
+        try {
+            DefaultBlockParameter from = new DefaultBlockParameterNumber(fromBlock);
+            DefaultBlockParameter to = new DefaultBlockParameterNumber(toBlock);
+            EthFilter filter = new EthFilter(from, to, blockchainProperties.getContractAddress());
+            filter.addSingleTopic(eventSignatureTopic);
+
+            EthLog ethLog = web3j.ethGetLogs(filter).send();
+            if (ethLog == null || ethLog.getLogs() == null) {
+                return Collections.emptyList();
+            }
+            return ethLog.getLogs().stream()
+                    .filter(r -> r instanceof EthLog.LogObject)
+                    .map(r -> (Log) r.get())
+                    .collect(java.util.stream.Collectors.toList());
+        } catch (Exception e) {
+            throw new RuntimeException("이벤트 로그 조회 실패 (topic=" + eventSignatureTopic + "): " + e.getMessage(), e);
+        }
     }
 
     /** 컨트랙트의 approvedMerchant 매핑 값을 조회합니다. */

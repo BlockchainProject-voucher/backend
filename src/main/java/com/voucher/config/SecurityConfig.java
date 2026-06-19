@@ -46,6 +46,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/members/user", "/api/members/merchant").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/members/check/**").permitAll()
+                // 로그인 흐름 닭-달걀 해소: 회원 정보 조회는 JWT 없이도 호출 가능.
+                // wallet 주소는 블록체인에 공개되는 정보라 보호 의미 약함.
+                .requestMatchers(HttpMethod.GET, "/api/members/*").permitAll()
                 .requestMatchers("/api/metadata/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                 // 아래 경로는 JWT 인증 필요

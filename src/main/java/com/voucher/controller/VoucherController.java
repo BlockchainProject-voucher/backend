@@ -40,8 +40,8 @@ public class VoucherController {
     public ApiResponse<VoucherResponse> issueVoucher(
             @Valid @RequestBody CreateVoucherRequest request,
             Authentication authentication) {
-        validateWalletOwnership(request.getWalletAddress(), authentication);
-        return voucherService.issueVoucher(request);
+        String requesterWallet = (String) authentication.getPrincipal();
+        return voucherService.issueVoucher(request, requesterWallet);
     }
 
     @Operation(summary = "바우처 자동 신청",
